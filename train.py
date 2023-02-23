@@ -96,6 +96,9 @@ torch.cuda.empty_cache()
 dataset = MyDataset(txt_data=txts_train, img_data=imgs_train, bow_data=bow_train, senti_data=sentiment_train, label=label_train)
 loader = DataLoader(dataset=dataset, batch_size=4, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
+dataset_val = MyDataset(txt_data=txts_val, img_data=imgs_val, bow_data=bow_val, senti_data=sentiment_val, label=label_val)
+loader_val = DataLoader(dataset=dataset_val, batch_size=4, collate_fn=collate_fn, shuffle=True, drop_last=True)
+
 model = RumorDetectionModel().to(device)
 bert_text = Bert_pretrain().to(device)
 vit_img = ViTImgFeat().to(device)
@@ -107,16 +110,19 @@ optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
 losses = []
 acc = []
+losses_val = []
+acc_val = []
 
 for epoch in range(epoch_num):
 
     train_loss_per_epoch = 0
     train_acc_per_epoch = 0
-    model.train()
 
     if epoch % 10 == 0 and epoch != 0:
         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] * 0.5
 
+    #train
+    model.train()
     for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader):
         out, mu, log_var, inputs_hat = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
         out = out.squeeze()
@@ -134,10 +140,11 @@ for epoch in range(epoch_num):
         acc_calcu[acc_calcu > Threshold] = 1
         acc_calcu[acc_calcu < Threshold] = 0
         acc_num = float(torch.eq(acc_calcu, labels_tensor).sum())
-        train_acc_per_epoch = train_acc_per_epoch + acc_num/4
+        train_acc_per_epoch = train_acc_per_epoch + acc_num / 4
 
         optimizer.zero_grad()
         loss.backward()
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
 
     losses.append(train_loss_per_epoch/len(loader))
@@ -146,4 +153,38 @@ for epoch in range(epoch_num):
     if epoch % 10 == 0:
         print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
 
-print('end')
+    val_loss_per_epoch = 0
+    val_acc_per_epoch = 0
+
+    #validation
+    model.eval()
+    with torch.no_grad():
+        for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader_val):
+            out_val, mu_val, log_var_val, inputs_hat_val = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids,
+                                                 bert_attention_mask, bert_token_type_ids, clip_input_ids,
+                                                 clip_attention_mask, clip_token_type_ids, vit_imgs_tensor,
+                                                 clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
+            out_val = out_val.squeeze()
+            reconst_loss_val = F.binary_cross_entropy(bow_tensor, inputs_hat_val, size_average=False)
+            kl_div_val = - 0.5 * torch.sum(1 + log_var_val - mu_val.pow(2) - log_var_val.exp())
+
+            ntm_loss_val = reconst_loss_val + kl_div_val
+            cls_loss_val = F.binary_cross_entropy(out_val, labels_tensor, size_average=False)
+            loss_val = cls_loss_val + lambda_weight * ntm_loss_val
+
+            val_loss_per_epoch = val_loss_per_epoch + loss_val
+
+            acc_calcu_val = out_val
+            acc_calcu_val[acc_calcu_val > Threshold] = 1
+            acc_calcu_val[acc_calcu_val < Threshold] = 0
+            acc_num_val = float(torch.eq(acc_calcu_val, labels_tensor).sum())
+            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 4
+
+        losses_val.append(val_loss_per_epoch / len(loader_val))
+        acc_val.append(val_acc_per_epoch / len(loader_val))
+
+        if epoch % 10 == 0:
+            print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
+
+
+print('---training_process_end---')
