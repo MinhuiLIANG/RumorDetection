@@ -41,7 +41,7 @@ class RumorDetectionModel(torch.nn.Module):
         #fused models:
         sim_tensor = clip_sim(clip_sim_feat) #[16,16]
         sim_weight, _ = sim_tensor.max(1)
-        sim_weight = sim_weight.reshape((4,1,1)) #[16,1,1]
+        sim_weight = sim_weight.reshape((16,1,1)) #[16,1,1]
 
         #weights:
         unimodal_weight = 0.5*(1 - sim_weight)
@@ -86,13 +86,13 @@ class RumorDetectionModel(torch.nn.Module):
         feat = fused_weighted_feat * sim_weight + text_feat * unimodal_weight + img_feat * unimodal_weight #[16,197,64]
 
         #Flattening
-        feat = feat.reshape((4, 197*64))
+        feat = feat.reshape((16, 197*64))
 
         #integrate_with_senti_n_topic
         feat_inte = torch.cat((feat, sentiment, z), dim=1) #[16, 197*64 + 4 + 12]
 
         #transform_n_reshape
-        feat_inte = feat_inte.reshape((4, 1, 197*64 + 4 + 12))
+        feat_inte = feat_inte.reshape((16, 1, 197*64 + 4 + 12))
         feat_inte = torch.transpose(feat_inte, 0, 1)
 
         #self_attentoin
