@@ -1,9 +1,11 @@
 import torch
-from transformers import BertModel
+from transformers import BertModel, BertConfig
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-pretrained = BertModel.from_pretrained('bert-base-chinese')
+configuration = BertConfig(num_hidden_layers=6)
+
+pretrained = BertModel(configuration)
 pretrained.to(device)
 
 for param in pretrained.parameters():

@@ -1,10 +1,12 @@
-from transformers import CLIPTokenizer, ChineseCLIPTextModel
+from transformers import CLIPTokenizer, ChineseCLIPTextModel, ChineseCLIPTextConfig
 import torch
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
 
-pretrained = ChineseCLIPTextModel.from_pretrained("OFA-Sys/chinese-clip-vit-base-patch16")
+configuration = ChineseCLIPTextConfig(num_hidden_layers=6)
+
+pretrained = ChineseCLIPTextModel(configuration)
 pretrained.to(device)
 
 for param in pretrained.parameters():

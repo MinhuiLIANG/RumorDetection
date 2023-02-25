@@ -6,8 +6,8 @@ con_corpus_neg = './data/train/train_negative.txt'
 senti_corpus_neg = './data/train/negative_senti.txt'
 bow_corpus_neg = './data/train/negative_tf.txt'
 
-pos_img_dir = '../weibo/rumor_images/'
-neg_img_dir = '../weibo/nonrumor_images/'
+pos_img_dir = './weibo/rumor_images/'
+neg_img_dir = './weibo/nonrumor_images/'
 
 
 def senti_dict(senti):

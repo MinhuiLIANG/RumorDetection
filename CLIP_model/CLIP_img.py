@@ -1,10 +1,12 @@
-from transformers import ChineseCLIPVisionModel
+from transformers import ChineseCLIPVisionConfig, ChineseCLIPVisionModel
 import torch
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
 
-pretrained = ChineseCLIPVisionModel.from_pretrained("OFA-Sys/chinese-clip-vit-base-patch16")
+configuration = ChineseCLIPVisionConfig(num_hidden_layers=6)
+
+pretrained = ChineseCLIPVisionModel(configuration)
 pretrained.to(device)
 
 for param in pretrained.parameters():
@@ -20,4 +22,3 @@ class ClipImgFeat(torch.nn.Module):
         with torch.no_grad():
             out = pretrained(Img)
         return out.last_hidden_state
-
