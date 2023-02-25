@@ -11,14 +11,14 @@ class RumorDetectionModel(torch.nn.Module):
     def __init__(self):
         super(RumorDetectionModel, self).__init__()
 
-        self.text_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm2d(256))
-        self.text_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm2d(64))
+        self.text_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm1d(197))
+        self.text_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm1d(197))
 
-        self.img_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm2d(256))
-        self.img_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm2d(64))
+        self.img_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm1d(197))
+        self.img_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm1d(197))
 
-        self.fused_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm2d(256))
-        self.fused_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm2d(64))
+        self.fused_projection_1 = nn.Sequential(nn.Linear(768 * 2, 256), nn.BatchNorm1d(197))
+        self.fused_projection_2 = nn.Sequential(nn.Linear(256, 64), nn.BatchNorm1d(197))
 
         self.cross_att = nn.MultiheadAttention(embed_dim=64, num_heads=8)
         self.self_att = nn.MultiheadAttention(embed_dim=197*64 + 4 + 12, num_heads=8)
