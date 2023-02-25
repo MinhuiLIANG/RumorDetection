@@ -98,8 +98,9 @@ class RumorDetectionModel(torch.nn.Module):
         #self_attentoin
         feat_attn_inte, txt_attn_inte_weights = self.self_att(feat_inte, feat_inte, feat_inte)
 
-        #Transpose
+        #Transpose_n_squeeze
         feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 197*64 + 4 + 12]
+        feat_attn_inte = feat_attn_inte.squeeze()
 
         #MLP
         feat_attn_inte = F.relu(self.fc1(feat_attn_inte))
