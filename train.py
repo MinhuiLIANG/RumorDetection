@@ -145,7 +145,7 @@ for epoch in range(epoch_num):
         acc_calcu[acc_calcu > Threshold] = 1
         acc_calcu[acc_calcu < Threshold] = 0
         acc_num = float(torch.eq(acc_calcu, labels_tensor).sum())
-        train_acc_per_epoch = train_acc_per_epoch + acc_num / 4
+        train_acc_per_epoch = train_acc_per_epoch + acc_num / 16
 
         optimizer.zero_grad()
         loss.backward()
