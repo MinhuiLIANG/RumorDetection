@@ -155,8 +155,8 @@ for epoch in range(epoch_num):
     losses.append(train_loss_per_epoch/len(loader))
     acc.append(train_acc_per_epoch/len(loader))
 
-    if epoch == 50:
-        path = root + '50.pth'
+    if epoch % 10 == 0:
+        path = root + str(epoch) + '.pth'
         torch.save(model.state_dict(), path)
     print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
 
