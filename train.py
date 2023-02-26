@@ -20,10 +20,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
 batch_size = 16
-epoch_num = 10
+epoch_num = 50
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.0001
+
+root = './models/model_'
 
 def split_train():
     txts, imgs, bow, sentiment, label = feed_dataset()
@@ -90,9 +92,6 @@ def collate_fn(data):
 
 txts_train, txts_val, imgs_train, imgs_val, bow_train, bow_val, sentiment_train, sentiment_val, label_train, label_val = split_train()
 
-gc.collect()
-torch.cuda.empty_cache()
-
 dataset = MyDataset(txt_data=txts_train, img_data=imgs_train, bow_data=bow_train, senti_data=sentiment_train, label=label_train)
 loader = DataLoader(dataset=dataset, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
@@ -156,8 +155,10 @@ for epoch in range(epoch_num):
     losses.append(train_loss_per_epoch/len(loader))
     acc.append(train_acc_per_epoch/len(loader))
 
-    if epoch % 10 == 0:
-        print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
+    if epoch == 50:
+        path = root + '50.pth'
+        torch.save(model.state_dict(), path)
+    print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
 
     val_loss_per_epoch = 0
     val_acc_per_epoch = 0
@@ -190,13 +191,12 @@ for epoch in range(epoch_num):
             acc_calcu_val[acc_calcu_val > Threshold] = 1
             acc_calcu_val[acc_calcu_val < Threshold] = 0
             acc_num_val = float(torch.eq(acc_calcu_val, labels_tensor).sum())
-            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 4
+            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 16
 
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))
 
-        if epoch % 10 == 0:
-            print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
+        print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
 
 
 print('---training_process_end---')
