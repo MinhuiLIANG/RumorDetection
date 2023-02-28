@@ -4,9 +4,8 @@ import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
 
-configuration = ChineseCLIPVisionConfig(num_hidden_layers=6)
 
-pretrained = ChineseCLIPVisionModel(configuration)
+pretrained = ChineseCLIPVisionModel.from_pretrained("OFA-Sys/chinese-clip-vit-base-patch16")
 pretrained.to(device)
 
 for param in pretrained.parameters():
@@ -18,7 +17,7 @@ class ClipImgFeat(torch.nn.Module):
     def __init__(self):
         super(ClipImgFeat, self).__init__()
 
-    def forward(self, Img):
+    def forward(self, inputs):
         with torch.no_grad():
-            out = pretrained(Img)
-        return out.last_hidden_state
+            out = pretrained(**inputs)
+        return out.last_hidden_state[:, 0]

@@ -3,9 +3,7 @@ from transformers import BertModel, BertConfig
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-configuration = BertConfig(num_hidden_layers=6)
-
-pretrained = BertModel(configuration)
+pretrained = BertModel.from_pretrained('bert-base-chinese')
 pretrained.to(device)
 
 for param in pretrained.parameters():
@@ -20,5 +18,5 @@ class Bert_pretrain(torch.nn.Module):
     def forward(self, input_ids, attention_mask, token_type_ids):
         with torch.no_grad():
             out = pretrained(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)
-        return out.last_hidden_state
+        return out.last_hidden_state[:, 0]
 

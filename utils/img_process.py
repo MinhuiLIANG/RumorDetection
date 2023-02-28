@@ -1,7 +1,7 @@
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
-from transformers import ChineseCLIPImageProcessor
+from transformers import ChineseCLIPImageProcessor, AutoImageProcessor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -41,9 +41,14 @@ def img_2_tensor(img_path):
     return img_tensor
 
 
-def clip_process(img_path):
-    image = Image.open(img_path)
+def clip_process(imgs):
     image_processor = ChineseCLIPImageProcessor.from_pretrained("OFA-Sys/chinese-clip-vit-base-patch16")
-    inputs = image_processor(image, return_tensors="pt")
+    inputs = image_processor(imgs, return_tensors="pt")
+    return inputs
+
+
+def vit_process(imgs):
+    image_processor = AutoImageProcessor.from_pretrained("google/vit-base-patch16-224-in21k")
+    inputs = image_processor(imgs, return_tensors="pt")
     return inputs
 

@@ -4,9 +4,8 @@ import torch
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
 
-configuration = ChineseCLIPTextConfig(num_hidden_layers=6)
 
-pretrained = ChineseCLIPTextModel(configuration)
+pretrained = ChineseCLIPTextModel.from_pretrained("OFA-Sys/chinese-clip-vit-base-patch16")
 pretrained.to(device)
 
 for param in pretrained.parameters():
@@ -21,4 +20,4 @@ class ClipTextFeat(torch.nn.Module):
     def forward(self, input_ids, attention_mask, token_type_ids):
         with torch.no_grad():
             out = pretrained(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids, output_hidden_states=True)
-        return out.last_hidden_state
+        return out.last_hidden_state[:, 0]

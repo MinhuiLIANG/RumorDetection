@@ -19,11 +19,13 @@ from utils.txt_process import bert_token, clip_token
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
-batch_size = 4
-epoch_num = 1
+batch_size = 16
+epoch_num = 50
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.0001
+
+root = './models/model_'
 
 def split_train():
     txts, imgs, bow, sentiment, label = feed_dataset()
@@ -90,14 +92,11 @@ def collate_fn(data):
 
 txts_train, txts_val, imgs_train, imgs_val, bow_train, bow_val, sentiment_train, sentiment_val, label_train, label_val = split_train()
 
-gc.collect()
-torch.cuda.empty_cache()
-
 dataset = MyDataset(txt_data=txts_train, img_data=imgs_train, bow_data=bow_train, senti_data=sentiment_train, label=label_train)
-loader = DataLoader(dataset=dataset, batch_size=4, collate_fn=collate_fn, shuffle=True, drop_last=True)
+loader = DataLoader(dataset=dataset, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 dataset_val = MyDataset(txt_data=txts_val, img_data=imgs_val, bow_data=bow_val, senti_data=sentiment_val, label=label_val)
-loader_val = DataLoader(dataset=dataset_val, batch_size=4, collate_fn=collate_fn, shuffle=True, drop_last=True)
+loader_val = DataLoader(dataset=dataset_val, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 model = RumorDetectionModel().to(device)
 bert_text = Bert_pretrain().to(device)
@@ -124,11 +123,16 @@ for epoch in range(epoch_num):
     #train
     model.train()
     for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader):
-        print(vit_imgs_tensor.shape)
+        vit_imgs_tensor = vit_imgs_tensor.squeeze()
+        clip_imgs_tensor = clip_imgs_tensor.squeeze()
         out, mu, log_var, inputs_hat = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
         out = out.squeeze()
         reconst_loss = F.binary_cross_entropy(bow_tensor, inputs_hat, size_average=False)
         kl_div = - 0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
+
+        #dtype_transfer
+        out = torch.tensor(out, dtype=torch.float32)
+        labels_tensor = torch.tensor(labels_tensor, dtype=torch.float32)
 
         # Backprop and optimize
         ntm_loss = reconst_loss + kl_div
@@ -141,7 +145,7 @@ for epoch in range(epoch_num):
         acc_calcu[acc_calcu > Threshold] = 1
         acc_calcu[acc_calcu < Threshold] = 0
         acc_num = float(torch.eq(acc_calcu, labels_tensor).sum())
-        train_acc_per_epoch = train_acc_per_epoch + acc_num / 4
+        train_acc_per_epoch = train_acc_per_epoch + acc_num / 16
 
         optimizer.zero_grad()
         loss.backward()
@@ -152,7 +156,9 @@ for epoch in range(epoch_num):
     acc.append(train_acc_per_epoch/len(loader))
 
     if epoch % 10 == 0:
-        print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
+        path = root + str(epoch) + '.pth'
+        torch.save(model.state_dict(), path)
+    print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
 
     val_loss_per_epoch = 0
     val_acc_per_epoch = 0
@@ -161,6 +167,8 @@ for epoch in range(epoch_num):
     model.eval()
     with torch.no_grad():
         for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader_val):
+            vit_imgs_tensor = vit_imgs_tensor.squeeze()
+            clip_imgs_tensor = clip_imgs_tensor.squeeze()
             out_val, mu_val, log_var_val, inputs_hat_val = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids,
                                                  bert_attention_mask, bert_token_type_ids, clip_input_ids,
                                                  clip_attention_mask, clip_token_type_ids, vit_imgs_tensor,
@@ -168,6 +176,10 @@ for epoch in range(epoch_num):
             out_val = out_val.squeeze()
             reconst_loss_val = F.binary_cross_entropy(bow_tensor, inputs_hat_val, size_average=False)
             kl_div_val = - 0.5 * torch.sum(1 + log_var_val - mu_val.pow(2) - log_var_val.exp())
+
+            # dtype_transfer
+            out_val = torch.tensor(out_val, dtype=torch.float32)
+            labels_tensor = torch.tensor(labels_tensor, dtype=torch.float32)
 
             ntm_loss_val = reconst_loss_val + kl_div_val
             cls_loss_val = F.binary_cross_entropy(out_val, labels_tensor, size_average=False)
@@ -179,13 +191,12 @@ for epoch in range(epoch_num):
             acc_calcu_val[acc_calcu_val > Threshold] = 1
             acc_calcu_val[acc_calcu_val < Threshold] = 0
             acc_num_val = float(torch.eq(acc_calcu_val, labels_tensor).sum())
-            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 4
+            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 16
 
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))
 
-        if epoch % 10 == 0:
-            print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
+        print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
 
 
 print('---training_process_end---')

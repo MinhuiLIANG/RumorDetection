@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-topic_num = 12
+topic_num = 100
 vec_size = 40535
 
 device = 'cuda'
