@@ -20,25 +20,27 @@ class RumorDetectionModel(torch.nn.Module):
         self.cross_att = nn.MultiheadAttention(embed_dim=128, num_heads=8)
         self.self_att = nn.MultiheadAttention(embed_dim=128 + 4 + 100, num_heads=8)
 
-        self.fc1 = nn.Sequential(nn.Linear(128 + 4 + 100, 2))
+        self.fc1 = nn.Sequential(nn.Linear(128 + 4 + 100, 1))
 
         self.drop_out = nn.Dropout(0.2)
 
-    def forward(self, bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_feat, clip_imgs_feat, clip_sim_feat, bow_tensor, senti_vec):
+    def forward(self, bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_vec):
         #text models:
         bert_tensor = bert_text(input_ids=bert_input_ids, attention_mask=bert_attention_mask, token_type_ids=bert_token_type_ids) #[16,768]
         clip_text_tensor = clip_text(input_ids=clip_input_ids, attention_mask=clip_attention_mask, token_type_ids=clip_token_type_ids) #[16,768]
 
         #image models:
-        vit_tensor = vit_img(vit_imgs_feat) #[16,768]
-        clip_image_tensor = clip_img(clip_imgs_feat) #[16,768]
+        vit_tensor = vit_img(vit_imgs_tensor) #[16,768]
+        clip_image_tensor = clip_img(clip_imgs_tensor) #[16,768]
 
         #fused models:
         sim_tensor = clip_sim(clip_sim_feat) #[16,16]
         sim_weight, _ = sim_tensor.max(1) #[16,1]
+        sim_weight = sim_weight.reshape((16, 1))
+        sim_weight = sim_weight.expand(16, 128)
 
         #weights:
-        unimodal_weight = 0.5*(1 - sim_weight) #[16,1]
+        unimodal_weight = 1
 
         #ntm
         inputs_hat, mean, log_var, z = ntm(bow_tensor) #[16,40535]
@@ -90,9 +92,10 @@ class RumorDetectionModel(torch.nn.Module):
 
         #Transpose_n_squeeze
         feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 128 + 4 + 100]
+        feat_attn_inte = feat_attn_inte.squeeze()
 
         #MLP
-        out = self.fc1(feat_attn_inte)
+        out = F.sigmoid(self.fc1(feat_attn_inte))
 
         return out, mean, log_var, inputs_hat
 

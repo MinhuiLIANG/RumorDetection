@@ -16,7 +16,7 @@ class ViTImgFeat(torch.nn.Module):
     def __init__(self):
         super(ViTImgFeat, self).__init__()
 
-    def forward(self, inputs):
+    def forward(self, Img):
         with torch.no_grad():
-            out = pretrained(**inputs)
+            out = pretrained(Img)
         return out.last_hidden_state[:, 0]
