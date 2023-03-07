@@ -21,7 +21,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 16
 Threshold = 0.5
 lambda_weight = 0.0001
-path = './models/model_10.pth'
+path = './models/model_best.pth'
 
 def collate_fn(data):
     txts = [i[0] for i in data]
@@ -36,6 +36,7 @@ def collate_fn(data):
     vit_img_list = []
     clip_img_list = []
     senti_list = []
+
     for j in range(batch_size):
         txts_list.append(txts[j][0])
 
@@ -92,13 +93,13 @@ with torch.no_grad():
         vit_imgs_tensor = vit_imgs_tensor.squeeze()
         clip_imgs_tensor = clip_imgs_tensor.squeeze()
         out_test, mu_test, log_var_test, inputs_hat_test = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
-        out_test = out_test.squeeze()
         reconst_loss_test = F.binary_cross_entropy(bow_tensor, inputs_hat_test, size_average=False)
         kl_div_test = - 0.5 * torch.sum(1 + log_var_test - mu_test.pow(2) - log_var_test.exp())
 
         # dtype_transfer
-        out_test = torch.tensor(out_test, dtype=torch.float32)
-        labels_tensor = torch.tensor(labels_tensor, dtype=torch.float32)
+        out_test = out_test.float()
+        labels_tensor = labels_tensor.float()
+        labels_tensor = labels_tensor.reshape((16, 1))
 
         ntm_loss_test = reconst_loss_test + kl_div_test
         cls_loss_test = F.binary_cross_entropy(out_test, labels_tensor, size_average=False)

@@ -20,7 +20,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
 batch_size = 16
-epoch_num = 50
+epoch_num = 10
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.01
@@ -112,6 +112,7 @@ losses = []
 acc = []
 losses_val = []
 acc_val = []
+best_performance = 0
 
 for epoch in range(epoch_num):
 
@@ -157,11 +158,6 @@ for epoch in range(epoch_num):
     losses.append(train_loss_per_epoch/len(loader))
     acc.append(train_acc_per_epoch/len(loader))
 
-    if epoch % 10 == 0:
-        path = root + str(epoch) + '.pth'
-        torch.save(model.state_dict(), path)
-    print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
-
     val_loss_per_epoch = 0
     val_acc_per_epoch = 0
 
@@ -197,6 +193,11 @@ for epoch in range(epoch_num):
 
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))
+
+        if val_acc_per_epoch/len(loader_val) > best_performance:
+            best_performance = val_acc_per_epoch/len(loader_val)
+            best_path = root + 'best.pth'
+            torch.save(model.state_dict(), best_path)
 
         print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
 
