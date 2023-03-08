@@ -86,6 +86,7 @@ ntm = VAE().to(device)
 checkpoint = torch.load(path)
 model.load_state_dict(checkpoint)
 
+acc_total = 0
 model.eval()
 loss_test_total = 0
 with torch.no_grad():
