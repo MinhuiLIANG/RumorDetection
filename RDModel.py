@@ -11,16 +11,21 @@ class RumorDetectionModel(torch.nn.Module):
     def __init__(self):
         super(RumorDetectionModel, self).__init__()
 
-        self.text_projection = nn.Sequential(nn.Linear(768 * 2, 128), nn.BatchNorm1d(128))
+        self.text_projection_1 = nn.Sequential(nn.Linear(768 * 2, 512), nn.BatchNorm1d(512))
+        self.text_projection_2 = nn.Sequential(nn.Linear(512, 128), nn.BatchNorm1d(128))
 
-        self.img_projection = nn.Sequential(nn.Linear(768 * 2, 128), nn.BatchNorm1d(128))
+        self.img_projection_1 = nn.Sequential(nn.Linear(768 * 2, 512), nn.BatchNorm1d(512))
+        self.img_projection_2 = nn.Sequential(nn.Linear(512, 128), nn.BatchNorm1d(128))
 
-        self.fused_projection = nn.Sequential(nn.Linear(768 * 2, 128), nn.BatchNorm1d(128))
+        self.fused_projection_1 = nn.Sequential(nn.Linear(768 * 2, 512), nn.BatchNorm1d(512))
+        self.fused_projection_2 = nn.Sequential(nn.Linear(512, 128), nn.BatchNorm1d(128))
 
         self.cross_att = nn.MultiheadAttention(embed_dim=128, num_heads=8)
         self.self_att = nn.MultiheadAttention(embed_dim=128 + 4 + 100, num_heads=8)
 
-        self.fc1 = nn.Sequential(nn.Linear(128 + 4 + 100, 1))
+        self.fc1 = nn.Sequential(nn.Linear(128 + 4 + 100, 64), nn.BatchNorm1d(64))
+        self.fc2 = nn.Sequential(nn.Linear(64, 1))
+        self.fc3 = nn.Sequential(nn.Linear(64, 2))
 
         self.drop_out = nn.Dropout(0.2)
 
@@ -36,8 +41,8 @@ class RumorDetectionModel(torch.nn.Module):
         #fused models:
         sim_tensor = clip_sim(clip_sim_feat) #[16,16]
         sim_weight, _ = sim_tensor.max(1) #[16,1]
-        sim_weight = sim_weight.reshape((16, 1))
-        sim_weight = sim_weight.expand(16, 128)
+        sim_weight = sim_weight.reshape((64, 1))
+        sim_weight = sim_weight.expand(64, 128)
 
         #weights:
         unimodal_weight = 1
@@ -54,16 +59,24 @@ class RumorDetectionModel(torch.nn.Module):
         fused_feat = torch.cat((clip_text_tensor, clip_image_tensor), dim=1) #[16,768*2]
 
         #projection
-        text_feat = F.relu(self.text_projection(text_feat)) #[16,128]
-        img_feat = F.relu(self.img_projection(img_feat)) #[16,128]
-        fused_feat = F.relu(self.fused_projection(fused_feat)) #[16,128]
+        text_feat = F.relu(self.text_projection_1(text_feat)) #[16,128]
+        text_feat = self.drop_out(text_feat)
+        text_feat = F.relu(self.text_projection_2(text_feat))
+
+        img_feat = F.relu(self.img_projection_1(img_feat)) #[16,128]
+        img_feat = self.drop_out(img_feat)
+        img_feat = F.relu(self.img_projection_2(img_feat))
+
+        fused_feat = F.relu(self.fused_projection_1(fused_feat)) #[16,128]
+        fused_feat = self.drop_out(fused_feat)
+        fused_feat = F.relu(self.fused_projection_2(fused_feat))
 
         #get_weighted_fused
         fused_weighted_feat = fused_feat * sim_weight #[16,128]
 
         #Transpose_n_reshape
-        text_feat = text_feat.reshape((16, 1, 128))
-        img_feat = img_feat.reshape((16, 1, 128))
+        text_feat = text_feat.reshape((64, 1, 128))
+        img_feat = img_feat.reshape((64, 1, 128))
         text_feat_trans = torch.transpose(text_feat, 0, 1)
         img_feat_trans = torch.transpose(img_feat, 0, 1)
 
@@ -84,7 +97,7 @@ class RumorDetectionModel(torch.nn.Module):
         feat_inte = torch.cat((feat, sentiment, z), dim=1) #[16, 128 + 4 + 100]
 
         #transform_n_reshape
-        feat_inte = feat_inte.reshape((16, 1, 128 + 4 + 100))
+        feat_inte = feat_inte.reshape((64, 1, 128 + 4 + 100))
         feat_inte = torch.transpose(feat_inte, 0, 1)
 
         #self_attentoin
@@ -95,7 +108,10 @@ class RumorDetectionModel(torch.nn.Module):
         feat_attn_inte = feat_attn_inte.squeeze()
 
         #MLP
-        out = F.sigmoid(self.fc1(feat_attn_inte))
+        out = F.relu(self.fc1(feat_attn_inte))
+        out = self.drop_out(out)
+        #out = F.sigmoid(self.fc2(out))
+        out = self.fc3(out)
 
         return out, mean, log_var, inputs_hat
 

@@ -19,8 +19,8 @@ from utils.txt_process import bert_token, clip_token
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
-batch_size = 16
-epoch_num = 10
+batch_size = 64
+epoch_num = 20
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.01
@@ -94,10 +94,10 @@ def collate_fn(data):
 txts_train, txts_val, imgs_train, imgs_val, bow_train, bow_val, sentiment_train, sentiment_val, label_train, label_val = split_train()
 
 dataset = MyDataset(txt_data=txts_train, img_data=imgs_train, bow_data=bow_train, senti_data=sentiment_train, label=label_train)
-loader = DataLoader(dataset=dataset, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
+loader = DataLoader(dataset=dataset, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 dataset_val = MyDataset(txt_data=txts_val, img_data=imgs_val, bow_data=bow_val, senti_data=sentiment_val, label=label_val)
-loader_val = DataLoader(dataset=dataset_val, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
+loader_val = DataLoader(dataset=dataset_val, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 model = RumorDetectionModel().to(device)
 bert_text = Bert_pretrain().to(device)
@@ -119,7 +119,7 @@ for epoch in range(epoch_num):
     train_loss_per_epoch = 0
     train_acc_per_epoch = 0
 
-    if epoch % 10 == 0 and epoch != 0:
+    if epoch % 5 == 0 and epoch != 0:
         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] * 0.5
 
     #train
@@ -133,12 +133,15 @@ for epoch in range(epoch_num):
 
         #dtype_transfer
         out = out.float()
-        labels_tensor = torch.tensor(labels_tensor, dtype=torch.float32)
-        labels_tensor = labels_tensor.reshape((16, 1))
+        labels_tensor = labels_tensor.long()
+
+        #labels_tensor = labels_tensor.float()
+        #labels_tensor = labels_tensor.reshape((16, 1))
 
         # Backprop and optimize
         ntm_loss = reconst_loss + kl_div
-        cls_loss = F.binary_cross_entropy(out, labels_tensor)
+        cls_loss = F.cross_entropy(out, labels_tensor)
+        #cls_loss = F.binary_cross_entropy(out, labels_tensor, size_average=False)
         loss = 100 * cls_loss + lambda_weight * ntm_loss
 
         train_loss_per_epoch = train_loss_per_epoch + loss
@@ -148,12 +151,15 @@ for epoch in range(epoch_num):
         torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
 
-        acc_calcu = out.squeeze()
-        lbs = labels_tensor.squeeze()
-        acc_calcu[acc_calcu > Threshold] = 1
-        acc_calcu[acc_calcu < Threshold] = 0
-        acc_num = float(torch.eq(acc_calcu, lbs).sum())
-        train_acc_per_epoch = train_acc_per_epoch + acc_num / 16
+        _, pred = out.max(1)
+        acc_num = float(torch.eq(pred, labels_tensor).sum())
+
+        #acc_calcu = out.squeeze()
+        #lbs = labels_tensor.squeeze()
+        #acc_calcu[acc_calcu > Threshold] = 1
+        #acc_calcu[acc_calcu < Threshold] = 0
+        #acc_num = float(torch.eq(acc_calcu, lbs).sum())
+        train_acc_per_epoch = train_acc_per_epoch + acc_num / 64
 
     losses.append(train_loss_per_epoch/len(loader))
     acc.append(train_acc_per_epoch/len(loader))
@@ -176,20 +182,26 @@ for epoch in range(epoch_num):
 
             # dtype_transfer
             out_val = out_val.float()
-            labels_tensor = torch.tensor(labels_tensor, dtype=torch.float32)
-            labels_tensor = labels_tensor.reshape((16, 1))
+            labels_tensor =labels_tensor.long()
+
+            #labels_tensor = labels_tensor.float()
+            #labels_tensor = labels_tensor.reshape((16, 1))
 
             ntm_loss_val = reconst_loss_val + kl_div_val
-            cls_loss_val = F.binary_cross_entropy(out_val, labels_tensor)
+            cls_loss_val = F.cross_entropy(out_val, labels_tensor)
+            #cls_loss = F.binary_cross_entropy(out, labels_tensor, size_average=False)
             loss_val = 100 * cls_loss_val + lambda_weight * ntm_loss_val
 
             val_loss_per_epoch = val_loss_per_epoch + loss_val
 
-            acc_calcu_val = out_val
-            acc_calcu_val[acc_calcu_val > Threshold] = 1
-            acc_calcu_val[acc_calcu_val < Threshold] = 0
-            acc_num_val = float(torch.eq(acc_calcu_val, labels_tensor).sum())
-            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 16
+            _, pred_val = out_val.max(1)
+            acc_num_val = float(torch.eq(pred_val, labels_tensor).sum())
+
+            #acc_calcu_val = out_val
+            #acc_calcu_val[acc_calcu_val > Threshold] = 1
+            #acc_calcu_val[acc_calcu_val < Threshold] = 0
+            #acc_num_val = float(torch.eq(acc_calcu_val, labels_tensor).sum())
+            val_acc_per_epoch = val_acc_per_epoch + acc_num_val / 64
 
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))

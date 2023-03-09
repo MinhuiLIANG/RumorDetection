@@ -1,7 +1,9 @@
 import torch
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+import torch.nn.functional as F
 
-input = torch.randn(3, 5, requires_grad=True)
-target = torch.randint(5, (3,), dtype=torch.int64)
-
-print(input)
+# Example of target with class indices
+input = torch.rand(16, 2, requires_grad=True)
+target = torch.ones(16)
+target = target.long()
+loss = F.cross_entropy(input, target)
+loss.backward()

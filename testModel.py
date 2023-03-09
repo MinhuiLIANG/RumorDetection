@@ -18,7 +18,7 @@ from utils.txt_process import bert_token, clip_token
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-batch_size = 16
+batch_size = 64
 Threshold = 0.5
 lambda_weight = 0.0001
 path = './models/model_best.pth'
@@ -73,7 +73,7 @@ def collate_fn(data):
 txt_test, img_test, bow_test, sentiment_test, label_test = feed_dataset_test()
 
 dataset_test = MyDataset(txt_data=txt_test, img_data=img_test, bow_data=bow_test, senti_data=sentiment_test, label=label_test)
-loader_test = DataLoader(dataset=dataset_test, batch_size=16, collate_fn=collate_fn, shuffle=True, drop_last=True)
+loader_test = DataLoader(dataset=dataset_test, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 model = RumorDetectionModel().to(device)
 bert_text = Bert_pretrain().to(device)
@@ -99,20 +99,26 @@ with torch.no_grad():
 
         # dtype_transfer
         out_test = out_test.float()
-        labels_tensor = labels_tensor.float()
-        labels_tensor = labels_tensor.reshape((16, 1))
+        labels_tensor = labels_tensor.long()
+
+        #labels_tensor = labels_tensor.float()
+        #labels_tensor = labels_tensor.reshape((16, 1))
 
         ntm_loss_test = reconst_loss_test + kl_div_test
-        cls_loss_test = F.binary_cross_entropy(out_test, labels_tensor, size_average=False)
+        cls_loss_test = F.cross_entropy(out_test, labels_tensor)
+        #cls_loss_test = F.binary_cross_entropy(out_test, labels_tensor, size_average=False)
         loss_test = cls_loss_test + lambda_weight * ntm_loss_test
 
         loss_test_total = loss_test_total + loss_test
 
-        acc_calcu_test = out_test
-        acc_calcu_test[acc_calcu_test > Threshold] = 1
-        acc_calcu_test[acc_calcu_test < Threshold] = 0
-        acc_num_test = float(torch.eq(acc_calcu_test, labels_tensor).sum())
-        acc_total = acc_total + acc_num_test / 16
+        _, pred_test = out_test.max(1)
+        acc_num_test = float(torch.eq(pred_test, labels_tensor).sum())
+
+        #acc_calcu_test = out_test
+        #acc_calcu_test[acc_calcu_test > Threshold] = 1
+        #acc_calcu_test[acc_calcu_test < Threshold] = 0
+        #acc_num_test = float(torch.eq(acc_calcu_test, labels_tensor).sum())
+        acc_total = acc_total + acc_num_test / 64
 
     print(loss_test_total / len(loader_test))
     print(acc_total / len(loader_test))
