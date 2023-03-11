@@ -127,7 +127,7 @@ for epoch in range(epoch_num):
     for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader):
         vit_imgs_tensor = vit_imgs_tensor.squeeze()
         clip_imgs_tensor = clip_imgs_tensor.squeeze()
-        out, mu, log_var, inputs_hat = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
+        out, mu, log_var, inputs_hat, _ = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
         reconst_loss = F.binary_cross_entropy(bow_tensor, inputs_hat, size_average=False)
         kl_div = - 0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
 
@@ -148,7 +148,6 @@ for epoch in range(epoch_num):
 
         optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 2.0)
         optimizer.step()
 
         _, pred = out.max(1)
@@ -173,7 +172,7 @@ for epoch in range(epoch_num):
         for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader_val):
             vit_imgs_tensor = vit_imgs_tensor.squeeze()
             clip_imgs_tensor = clip_imgs_tensor.squeeze()
-            out_val, mu_val, log_var_val, inputs_hat_val = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids,
+            out_val, mu_val, log_var_val, inputs_hat_val, _ = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids,
                                                  bert_attention_mask, bert_token_type_ids, clip_input_ids,
                                                  clip_attention_mask, clip_token_type_ids, vit_imgs_tensor,
                                                  clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
@@ -208,8 +207,9 @@ for epoch in range(epoch_num):
 
         if val_acc_per_epoch/len(loader_val) > best_performance:
             best_performance = val_acc_per_epoch/len(loader_val)
-            best_path = root + 'best.pth'
-            torch.save(model.state_dict(), best_path)
+            if epoch > 4 :
+                best_path = root + 'best.pth'
+                torch.save(model.state_dict(), best_path)
 
         print('epoch: {}, loss_val: {:.4f}, acc_val: {:.4f}'.format(epoch, val_loss_per_epoch / len(loader_val), val_acc_per_epoch / len(loader_val)))
 

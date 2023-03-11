@@ -1,5 +1,10 @@
 import torch, gc
 from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.manifold import TSNE
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 from Bert_model.Bert_pretrain import Bert_pretrain
 from CLIP_model.CLIP_img import ClipImgFeat
@@ -93,7 +98,7 @@ with torch.no_grad():
     for i, (bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor, labels_tensor) in enumerate(loader_test):
         vit_imgs_tensor = vit_imgs_tensor.squeeze()
         clip_imgs_tensor = clip_imgs_tensor.squeeze()
-        out_test, mu_test, log_var_test, inputs_hat_test = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
+        out_test, mu_test, log_var_test, inputs_hat_test, feat = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
         reconst_loss_test = F.binary_cross_entropy(bow_tensor, inputs_hat_test, size_average=False)
         kl_div_test = - 0.5 * torch.sum(1 + log_var_test - mu_test.pow(2) - log_var_test.exp())
 
@@ -118,7 +123,30 @@ with torch.no_grad():
         #acc_calcu_test[acc_calcu_test > Threshold] = 1
         #acc_calcu_test[acc_calcu_test < Threshold] = 0
         #acc_num_test = float(torch.eq(acc_calcu_test, labels_tensor).sum())
-        acc_total = acc_total + acc_num_test / 64
+        acc_total = acc_total + acc_num_test / batch_size
+
+        #t-sne plot
+        feat_np = feat.numpy()
+        labels_np = labels_tensor.numpy()
+        tsne = TSNE(n_components=2, init='pca', random_state=42).fit_transform(feat_np)
+        pos_index = (labels_np == 1)
+        neg_index = (labels_np == 0)
+        pos_tsne = tsne[pos_index]
+        neg_tsne = tsne[neg_index]
+
+        plt.figure(figsize=(8, 8))
+        plt.scatter(pos_tsne[:, 0], pos_tsne[:, 1], 1, color='#dcba58', label='rumors')
+        plt.scatter(neg_tsne[:, 0], neg_tsne[:, 1], 1, color='#ff6e5d', label='non-rumors')
+        plt.legend(loc='upper left')
+        plt.show()
+
+        #confusion_matrix
+        x_tick = ['0','1']
+        y_tick = ['0','1']
+        pred_np = pred_test.numpy()
+        matrix = confusion_matrix(labels_np, pred_np) / batch_size
+        sns.heatmap(matrix, fmt='g', cmap="YlOrRd", annot=True, cbar=False, xticklabels=x_tick, yticklabels=y_tick)
+        plt.show()
 
     print(loss_test_total / len(loader_test))
     print(acc_total / len(loader_test))

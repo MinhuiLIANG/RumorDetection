@@ -113,5 +113,5 @@ class RumorDetectionModel(torch.nn.Module):
         #out = F.sigmoid(self.fc2(out))
         out = self.fc3(out)
 
-        return out, mean, log_var, inputs_hat
+        return out, mean, log_var, inputs_hat, feat_attn_inte
 
