@@ -128,7 +128,7 @@ for epoch in range(epoch_num):
         vit_imgs_tensor = vit_imgs_tensor.squeeze()
         clip_imgs_tensor = clip_imgs_tensor.squeeze()
         out, mu, log_var, inputs_hat, _ = model(bert_text, vit_img, clip_text, clip_img, clip_sim, ntm, bert_input_ids, bert_attention_mask, bert_token_type_ids, clip_input_ids, clip_attention_mask, clip_token_type_ids, vit_imgs_tensor, clip_imgs_tensor, clip_sim_feat, bow_tensor, senti_tensor)
-        reconst_loss = F.binary_cross_entropy(bow_tensor, inputs_hat, size_average=False)
+        reconst_loss = F.binary_cross_entropy(bow_tensor, inputs_hat)
         kl_div = - 0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp())
 
         #dtype_transfer
@@ -205,6 +205,8 @@ for epoch in range(epoch_num):
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))
 
+        normal_path = root + str(epoch) + '.pth'
+        torch.save(model.state_dict(), normal_path)
         if val_acc_per_epoch/len(loader_val) > best_performance:
             best_performance = val_acc_per_epoch/len(loader_val)
             if epoch > 4 :
