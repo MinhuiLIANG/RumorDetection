@@ -89,7 +89,7 @@ clip_sim = ClipSim().to(device)
 ntm = VAE().to(device)
 
 checkpoint = torch.load(path)
-model.load_state_dict(checkpoint)
+model.load_state_dict(checkpoint, strict=False)
 
 acc_total = 0
 model.eval()
@@ -164,5 +164,7 @@ x_tick = ['0', '1']
 y_tick = ['0', '1']
 matrix = confusion_matrix(labels, preds) / (batch_size * len(loader_test))
 sns.heatmap(matrix, fmt='g', cmap="YlOrRd", annot=True, cbar=False, xticklabels=x_tick, yticklabels=y_tick)
+plt.xlabel('Ground Truth')
+plt.ylabel('Prediction')
 plt.savefig('./plots/heat/heat.png')
 plt.show()

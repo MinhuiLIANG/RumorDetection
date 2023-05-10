@@ -16,11 +16,25 @@ from utils.img_process import img_2_tensor
 from utils.sim_process import img_text_process
 from utils.txt_process import bert_token, clip_token
 
+import os
+import numpy as np
+import random
+
+seed_value = 3407
+
+np.random.seed(seed_value)
+random.seed(seed_value)
+os.environ['PYTHONHASHSEED'] = str(seed_value)
+
+torch.manual_seed(seed_value)
+torch.cuda.manual_seed(seed_value)
+torch.cuda.manual_seed_all(seed_value)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
 batch_size = 64
-epoch_num = 20
+epoch_num = 50
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.01
@@ -96,7 +110,7 @@ txts_train, txts_val, imgs_train, imgs_val, bow_train, bow_val, sentiment_train,
 dataset = MyDataset(txt_data=txts_train, img_data=imgs_train, bow_data=bow_train, senti_data=sentiment_train, label=label_train)
 loader = DataLoader(dataset=dataset, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
-dataset_val = MyDataset(txt_data=txts_val, img_data=imgs_val, bow_data=bow_val, senti_data=sentiment_val, label=label_val)
+dataset_val = MyDataset(txt_data=txts_val, img_data=imgs_val, bow_data=bow_train, senti_data=sentiment_val, label=label_val)
 loader_val = DataLoader(dataset=dataset_val, batch_size=64, collate_fn=collate_fn, shuffle=True, drop_last=True)
 
 model = RumorDetectionModel().to(device)
@@ -163,6 +177,10 @@ for epoch in range(epoch_num):
     losses.append(train_loss_per_epoch/len(loader))
     acc.append(train_acc_per_epoch/len(loader))
 
+    model_path = root + str(epoch) + '.pth'
+    torch.save(model.state_dict(), model_path)
+    print('epoch: {}, loss: {:.4f}, acc: {:.4f}'.format(epoch, train_loss_per_epoch/len(loader), train_acc_per_epoch/len(loader)))
+
     val_loss_per_epoch = 0
     val_acc_per_epoch = 0
 
@@ -205,8 +223,6 @@ for epoch in range(epoch_num):
         losses_val.append(val_loss_per_epoch / len(loader_val))
         acc_val.append(val_acc_per_epoch / len(loader_val))
 
-        normal_path = root + str(epoch) + '.pth'
-        torch.save(model.state_dict(), normal_path)
         if val_acc_per_epoch/len(loader_val) > best_performance:
             best_performance = val_acc_per_epoch/len(loader_val)
             if epoch > 4 :

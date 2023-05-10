@@ -2,6 +2,20 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import os
+import numpy as np
+import random
+
+seed_value = 3407
+
+np.random.seed(seed_value)
+random.seed(seed_value)
+os.environ['PYTHONHASHSEED'] = str(seed_value)
+
+torch.manual_seed(seed_value)
+torch.cuda.manual_seed(seed_value)
+torch.cuda.manual_seed_all(seed_value)
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
 
@@ -21,7 +35,11 @@ class RumorDetectionModel(torch.nn.Module):
         self.fused_projection_2 = nn.Sequential(nn.Linear(512, 128), nn.BatchNorm1d(128))
 
         self.cross_att = nn.MultiheadAttention(embed_dim=128, num_heads=8)
+        self.ahead_att = nn.MultiheadAttention(embed_dim=128 + 4, num_heads=4)
         self.self_att = nn.MultiheadAttention(embed_dim=128 + 4 + 100, num_heads=8)
+        self.pre_att = nn.MultiheadAttention(embed_dim=768*2, num_heads=8)
+
+        self.mlp = nn.Sequential(nn.Linear(100 + 4, 128), nn.BatchNorm1d(128))
 
         self.fc1 = nn.Sequential(nn.Linear(128 + 4 + 100, 64), nn.BatchNorm1d(64))
         self.fc2 = nn.Sequential(nn.Linear(64, 1))
@@ -91,8 +109,42 @@ class RumorDetectionModel(torch.nn.Module):
         img_attn_feat = img_attn_feat.squeeze() #[16, 128]
 
         #weighted_sum
-        feat = fused_weighted_feat * sim_weight + txt_attn_feat * unimodal_weight + img_attn_feat * unimodal_weight #[16,128]
+        feat = fused_weighted_feat + txt_attn_feat * unimodal_weight + img_attn_feat * unimodal_weight #[16,128]
 
+
+        # two-step-attention
+        feat_n_senti = torch.cat((feat, sentiment), dim=1) #[64, 128 + 4]
+        feat_n_senti = feat_n_senti.reshape((64, 1, 128 + 4))
+        feat_n_senti = torch.transpose(feat_n_senti, 0, 1)
+        feat_n_senti, _ = self.ahead_att(feat_n_senti, feat_n_senti, feat_n_senti)
+        feat_n_senti = torch.transpose(feat_n_senti, 0, 1) #[16, 128 + 4]
+        feat_n_senti = feat_n_senti.squeeze()
+        
+        feat_inte = torch.cat((feat_n_senti, z), dim=1) #[16, 128 + 4 + 100]
+        feat_inte = feat_inte.reshape((64, 1, 128 + 4 + 100))
+        feat_inte = torch.transpose(feat_inte, 0, 1)
+        feat_attn_inte, feat_attn_inte_weights = self.self_att(feat_inte, feat_inte, feat_inte)
+        feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 128 + 4 + 100]
+        feat_attn_inte = feat_attn_inte.squeeze()
+        '''
+        # let senti_n_topic be query
+        senti_n_topic = torch.cat((senti, z), dim=1) #[64, 100 + 4]
+        senti_n_topic = senti_n_topic.reshape((64, 1, 100 + 4))
+        senti_n_topic = torch.transpose(senti_n_topic, 0, 1)
+        senti_n_topic, _ = self.ahead_att(senti_n_topic, senti_n_topic, senti_n_topic)
+        senti_n_topic = torch.transpose(senti_n_topic, 0, 1) #[64, 100 + 4]
+        senti_n_topic = senti_n_topic.squeeze()
+        
+        senti_n_topic = F.relu(self.mlp(senti_n_topic)) #[64, 128]
+        
+        senti_n_topic = senti_n_topic.reshape((64, 1, 128))
+        senti_n_topic = torch.transpose(senti_n_topic, 0, 1)
+        feat_attn_inte, feat_attn_inte_weights = self.self_att(senti_n_topic, feat, feat)
+        feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 128 + 4 + 100]
+        feat_attn_inte = feat_attn_inte.squeeze()
+        '''
+
+        '''
         #integrate_with_senti_n_topic
         feat_inte = torch.cat((feat, sentiment, z), dim=1) #[16, 128 + 4 + 100]
 
@@ -106,6 +158,7 @@ class RumorDetectionModel(torch.nn.Module):
         #Transpose_n_squeeze
         feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 128 + 4 + 100]
         feat_attn_inte = feat_attn_inte.squeeze()
+        '''
 
         #MLP
         out = F.relu(self.fc1(feat_attn_inte))

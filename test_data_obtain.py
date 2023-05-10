@@ -143,3 +143,10 @@ def feed_dataset_test():
         imgs.append(content[i][1])
 
     return txts, imgs, bow, sentiment, label
+
+txt_test, img_test, bow_test, sentiment_test, label_test = feed_dataset_test()
+print(txt_test[0])
+print(img_test[0])
+print(len(bow_test[0]))
+print(sentiment_test[0])
+print(label_test[0])
