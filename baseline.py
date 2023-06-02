@@ -2,23 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import os
-import numpy as np
-import random
-
-seed_value = 3407
-
-np.random.seed(seed_value)
-random.seed(seed_value)
-os.environ['PYTHONHASHSEED'] = str(seed_value)
-
-torch.manual_seed(seed_value)
-torch.cuda.manual_seed(seed_value)
-torch.cuda.manual_seed_all(seed_value)
-
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)
+
 
 class BaselineModel(torch.nn.Module):
 
@@ -82,17 +69,35 @@ class BaselineModel(torch.nn.Module):
         fused_feat = self.drop_out(fused_feat)
         fused_feat = F.relu(self.fused_projection_2(fused_feat))
 
-        # weighted_sum
-        feat = sim_weight*fused_feat + text_feat + img_feat  # [16,128]
+        #Transpose_n_reshape
+        text_feat = text_feat.reshape((64, 1, 128))
+        img_feat = img_feat.reshape((64, 1, 128))
+        text_feat_trans = torch.transpose(text_feat, 0, 1)
+        img_feat_trans = torch.transpose(img_feat, 0, 1)
 
+        #text_image_cross_attention
+        txt_attn_feat, txt_attn_weights = self.cross_att(text_feat_trans, img_feat_trans, img_feat_trans)
+        img_attn_feat, img_attn_weights = self.cross_att(img_feat_trans, text_feat_trans, text_feat_trans)
+
+        #Transpose
+        txt_attn_feat = torch.transpose(txt_attn_feat, 0, 1)
+        img_attn_feat = torch.transpose(img_attn_feat, 0, 1)
+        txt_attn_feat = txt_attn_feat.squeeze() #[16, 128]
+        img_attn_feat = img_attn_feat.squeeze() #[16, 128]
+
+        # weighted_sum
+        feat = sim_weight*fused_feat + txt_attn_feat + img_attn_feat  # [16,128]
+
+        '''
         feat_inte = feat.reshape((64, 1, 128))
         feat_inte = torch.transpose(feat_inte, 0, 1)
         feat_attn_inte, feat_attn_inte_weights = self.self_att(feat_inte, feat_inte, feat_inte)
         feat_attn_inte = torch.transpose(feat_attn_inte, 0, 1) #[16, 128 + 4 + 100]
         feat_attn_inte = feat_attn_inte.squeeze()
+        '''
 
         # MLP
-        out = F.relu(self.fc1(feat_attn_inte))
+        out = F.relu(self.fc1(feat))
         out = self.drop_out(out)
         # out = F.sigmoid(self.fc2(out))
         out = self.fc3(out)

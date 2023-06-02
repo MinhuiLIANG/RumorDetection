@@ -29,7 +29,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 batch_size = 64
 Threshold = 0.5
 lambda_weight = 0.0001
-path = './baseline_wc_models/model_best.pth'
+path = './baseline_wc_models/model_35.pth'
 
 def collate_fn(data):
     txts = [i[0] for i in data]
@@ -156,7 +156,7 @@ plt.figure(figsize=(8, 8))
 plt.scatter(pos_tsne[:, 0], pos_tsne[:, 1], 1, color='#115c7c', label='rumors')
 plt.scatter(neg_tsne[:, 0], neg_tsne[:, 1], 1, color='#c14141', label='non-rumors')
 plt.legend(loc='upper left')
-plt.savefig('./plots/tsne/tsne_without_clip.png')
+plt.savefig('./plots/tsne/bc_tsne.png')
 plt.show()
 
 # confusion_matrix
@@ -166,5 +166,5 @@ matrix = confusion_matrix(labels, preds) / (batch_size * len(loader_test))
 sns.heatmap(matrix, fmt='g', cmap="YlOrRd", annot=True, cbar=False, xticklabels=x_tick, yticklabels=y_tick)
 plt.xlabel('Ground Truth')
 plt.ylabel('Prediction')
-plt.savefig('./plots/heat/heat_without_clip.png')
+plt.savefig('./plots/heat/bc_heat.png')
 plt.show()

@@ -19,8 +19,17 @@ from utils.txt_process import bert_token, clip_token
 import os
 import numpy as np
 import random
+import argparse
 
-seed_value = 3407
+parser = argparse.ArgumentParser(description='seed_value')
+parser.add_argument('-s', '--seed_value', type=int, help='seed_value')
+
+args = parser.parse_args()
+
+if args.seed_value:
+    seed_value = args.seed_value
+else:
+    seed_value = 42
 
 np.random.seed(seed_value)
 random.seed(seed_value)
@@ -34,7 +43,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
 batch_size = 64
-epoch_num = 50
+epoch_num = 35
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.01

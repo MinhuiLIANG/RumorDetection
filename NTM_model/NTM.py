@@ -14,13 +14,13 @@ class VAE(nn.Module):
 
         #encoder:
         self.fc1 = nn.Sequential(nn.Linear(vec_size, 768), nn.BatchNorm1d(768))
-        self.fc2 = nn.Sequential(nn.Linear(768, 64), nn.BatchNorm1d(64))
-        self.mean = nn.Linear(64, topic_num)
-        self.var = nn.Linear(64, topic_num)
+        self.fc2 = nn.Sequential(nn.Linear(768, 256), nn.BatchNorm1d(256))
+        self.mean = nn.Linear(256, topic_num)
+        self.var = nn.Linear(256, topic_num)
 
         #decoder:
-        self.fc4 = nn.Linear(topic_num, 64)
-        self.fc5 = nn.Sequential(nn.Linear(64, 768), nn.BatchNorm1d(768))
+        self.fc4 = nn.Linear(topic_num, 256)
+        self.fc5 = nn.Sequential(nn.Linear(256, 768), nn.BatchNorm1d(768))
         self.fc6 = nn.Linear(768, vec_size)
 
     def encoder(self, x):

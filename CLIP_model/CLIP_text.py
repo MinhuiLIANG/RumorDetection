@@ -1,19 +1,6 @@
 from transformers import CLIPTokenizer, ChineseCLIPTextModel, ChineseCLIPTextConfig
 import torch
 
-import os
-import numpy as np
-import random
-
-seed_value = 3407
-
-np.random.seed(seed_value)
-random.seed(seed_value)
-os.environ['PYTHONHASHSEED'] = str(seed_value)
-
-torch.manual_seed(seed_value)
-torch.cuda.manual_seed(seed_value)
-torch.cuda.manual_seed_all(seed_value)
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print('device=', device)

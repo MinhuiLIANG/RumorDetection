@@ -22,7 +22,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 val_num = 500
 batch_size = 64
-epoch_num = 50
+epoch_num = 35
 Threshold = 0.5
 learning_rate = 0.001
 lambda_weight = 0.01
