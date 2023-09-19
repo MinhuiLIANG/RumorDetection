@@ -5,4 +5,4 @@ This is the code related to my BSC graduation thesis.
 * During the training process, dictionary `models` will be generated with models of each epoch in the root directory of this project.
 * File `testModel` can be utilized to check the performance of the models, change `path` in line 29 to select the model you are interested in.
 * The BSC thesis of this project is in the dictionary `thesis`.
-* If this project helps you, please **leave a STAR**, thanks!
+* If this project helps you, please leave a **STAR**, thanks!
